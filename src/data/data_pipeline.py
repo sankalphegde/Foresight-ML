@@ -20,13 +20,25 @@ from src.data.clients.sec_client import SECClient
 GCS_BUCKET = os.getenv("GCS_BUCKET", "foresight-ml-data")
 SEC_USER_AGENT = os.getenv("SEC_USER_AGENT")
 FRED_API_KEY = os.getenv("FRED_API_KEY")
+COMPANIES_CSV = os.getenv("COMPANIES_CSV", "/opt/airflow/dags/data/companies.csv")
+MAX_COMPANIES = int(os.getenv("MAX_COMPANIES", "50"))  # Default to first 50 real companies
 
-COMPANIES = [
-    {"ticker": "AAPL", "cik": "0000320193"},
-    {"ticker": "MSFT", "cik": "0000789019"},
-    {"ticker": "GOOGL", "cik": "0001652044"},
-    {"ticker": "AMZN", "cik": "0001018724"},
-]
+
+def load_companies() -> list[dict]:
+    """Load companies from CSV file."""
+    df = pd.read_csv(COMPANIES_CSV)
+    
+    # Limit to MAX_COMPANIES
+    df = df.head(MAX_COMPANIES)
+    
+    companies = []
+    for _, row in df.iterrows():
+        companies.append({
+            "ticker": row["ticker"],
+            "cik": str(row["cik"]).zfill(10),
+        })
+    
+    return companies
 
 
 def fetch_sec_data(**context) -> str:  # type: ignore[no-untyped-def]
@@ -36,8 +48,12 @@ def fetch_sec_data(**context) -> str:  # type: ignore[no-untyped-def]
 
     client = SECClient(user_agent=SEC_USER_AGENT, cache_dir="/tmp/cache/sec")
 
+    # Load companies from CSV
+    companies = load_companies()
+    print(f"Loaded {len(companies)} companies from CSV")
+
     all_filings = []
-    for company in COMPANIES:
+    for company in companies:
         filings_data = client.get_company_filings(company["cik"])
         filings = client.filter_filings(
             filings_data, form_types=["10-K", "10-Q"], start_date="2020-01-01"

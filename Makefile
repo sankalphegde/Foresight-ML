@@ -1,29 +1,70 @@
-.PHONY: help init deploy test clean
+.PHONY: help setup sync install local-up local-down terraform-init terraform-plan terraform-apply terraform-destroy lint format typecheck
 
 help:
-	echo "Foresight-ML Minimal Pipeline"
+	echo "Foresight-ML Data Pipeline"
 	echo ""
-	echo "Available commands:"
-	echo "  make init       - Initialize project (DVC, deps)"
-	echo "  make deploy     - Deploy infrastructure with Terraform"
-	echo "  make test       - Test API clients locally"
-	echo "  make clean      - Clear caches"
+	echo "Setup:"
+	echo "  make setup           - Install uv and initialize project"
+	echo "  make sync            - Sync dependencies with uv"
+	echo "  make install         - Install package in development mode"
 	echo ""
+	echo "Local Development:"
+	echo "  make local-up        - Start local Airflow"
+	echo "  make local-down      - Stop local Airflow"
+	echo ""
+	echo "Code Quality:"
+	echo "  make lint            - Run ruff linter"
+	echo "  make format          - Format code with ruff"
+	echo "  make typecheck       - Run mypy type checker"
+	echo "  make check           - Run all checks (lint + typecheck)"
+	echo ""
+	echo "GCP Deployment:"
+	echo "  make terraform-init  - Initialize Terraform"
+	echo "  make terraform-plan  - Preview infrastructure changes"
+	echo "  make terraform-apply - Deploy infrastructure"
+	echo "  make terraform-destroy - Destroy infrastructure"
 
-init:
-	pip install -r requirements.txt
-	dvc init
-	echo "✓ Initialized"
+setup:
+	echo "Installing uv..."
+	command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
+	echo "Initializing project..."
+	uv sync
+	echo "Setup complete!"
 
-deploy:
-	cd terraform && terraform init && terraform apply
-	echo "✓ Infrastructure deployed"
+sync:
+	uv sync
 
-test:
-	python -c "from src.sec_client import SECClient; print('SEC client OK')"
-	python -c "from src.fred_client import FREDClient; print('FRED client OK')"
-	echo "✓ Clients working"
+install:
+	uv pip install -e .
 
-clean:
-	rm -rf .cache/
-	echo "✓ Caches cleared"
+local-up:
+	docker-compose up -d
+	echo "Airflow UI: http://localhost:8080 (admin/admin)"
+
+local-down:
+	docker-compose down
+
+lint:
+	uv run ruff check src/ airflow/
+
+format:
+	uv run ruff format src/ airflow/
+	uv run ruff check --fix src/ airflow/
+
+typecheck:
+	uv run mypy src/
+
+check: lint typecheck
+	echo "All checks passed"
+
+terraform-init:
+	cd terraform && terraform init
+
+terraform-plan:
+	cd terraform && terraform plan
+
+terraform-apply:
+	cd terraform && terraform apply
+
+terraform-destroy:
+	cd terraform && terraform destroy

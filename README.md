@@ -205,35 +205,88 @@ git clone https://github.com/sankalphegde/Foresight-ML.git
 cd Foresight-ML
 ```
 
-2. **Install Python Dependencies**
-```bash
-pip install -r requirements.txt
+2. **Install uv (if not already installed)**
+```
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-3. **Initialize Code Quality Hooks**
-This project uses pre-commit to enforce code standards.
-```bash
-pre-commit install
+3. **Set up project (installs dependencies)**
+```
+make setup
 ```
 
-4. **Pull Versioned Data**
-If DVC remotes are configured, pull the latest datasets and artifacts:
-```bash
-dvc pull
+4. **Set up environment**
 ```
+cp .env.example .env
+```
+Then edit .env with your API keys
+
+5. **Start Airflow locally**
+```
+make local-up
+```
+
+6. **Access Airflow UI: http://localhost:8080**\
+Username: admin, Password: admin
 
 If data is not yet available via DVC, ingestion scripts can be run to fetch raw data from public sources.
 
-5. **Cloud Deployment**
+### Cloud Deployment
 
 Deployment to Google Cloud Platform is handled using Cloud Run services and jobs, triggered via Cloud Scheduler and GitHub Actions.
 Deployment configuration files are located in the infra/ directory.
 
-This step is optional for local development and required only for cloud execution or demo deployment.
+1. **Configure GCP credentials**
+```
+gcloud auth application-default login
+```
 
-## 10. Example Usage
+2. **Create Terraform state bucket (one-time)**
+```
+gsutil mb gs://foresight-ml-terraform-state
+```
 
-You can interact with the system either by running pipeline stages locally or by invoking deployed cloud services.
+3. **Configure Terraform**
+```
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+```
+Edit terraform.tfvars with your GCP project ID
+
+4. **Deploy infrastructure**
+```
+terraform init
+terraform plan
+terraform apply
+```
+
+5. **Save service account key for local development**
+```
+terraform output -raw dev_service_account_key | base64 -d > ../gcp-key.json
+```
+
+6. **Set environment variables**
+```
+export GOOGLE_APPLICATION_CREDENTIALS=./gcp-key.json
+export GCS_BUCKET=$(terraform output -raw data_lake_bucket)
+```
+
+7. **Upload DAGs to Cloud Composer (if enabled)**
+```
+gcloud composer environments storage dags import
+  --environment foresight-ml-dev
+  --location us-central1
+  --source ../airflow/dags/data_pipeline.py
+```
+
+8. **Upload source code**
+```
+gcloud composer environments storage dags import
+  --environment foresight-ml-dev
+  --location us-central1
+  --source ../src/
+  --destination src
+```
 
 ### Running the Training Pipeline
 
