@@ -33,6 +33,7 @@ dev-dependencies = [
     "ruff>=0.1.15",
     "mypy>=1.8.0",
     "types-requests>=2.31.0.20240125",
+    "pytest>=9.0.2",
 ]
 
 [tool.ruff]

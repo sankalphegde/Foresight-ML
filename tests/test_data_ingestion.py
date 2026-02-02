@@ -27,17 +27,17 @@ def test_fred_client_init():
     assert client.cache_dir.exists()
 
 
-def test_cache_path_generation():
+def test_cache_key_generation():
     """Test cache file path generation."""
     client = SECClient(user_agent="Test test@example.com")
-    path1 = client._cache_path("test")
-    path2 = client._cache_path("test")
+    path1 = client._cache_key("test")
+    path2 = client._cache_key("test")
     
     # Same input should generate same path
     assert path1 == path2
     
     # Different input should generate different path
-    path3 = client._cache_path("different")
+    path3 = client._cache_key("different")
     assert path1 != path3
 
 
