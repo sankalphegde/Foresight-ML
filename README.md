@@ -276,7 +276,7 @@ export GCS_BUCKET=$(terraform output -raw data_lake_bucket)
 gcloud composer environments storage dags import
   --environment foresight-ml-dev
   --location us-central1
-  --source ../airflow/dags/data_pipeline.py
+  --source ../airflow/dags/foresight_ml_data_pipeline.py
 ```
 
 8. **Upload source code**

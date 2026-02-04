@@ -1,12 +1,13 @@
 """FRED API client with caching and Pydantic validation."""
+
 import hashlib
 import json
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 import pandas as pd
 import requests
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class SeriesObservation(BaseModel):
@@ -54,12 +55,13 @@ class FREDClient:
         key_str = json.dumps(params, sort_keys=True)
         return hashlib.md5(key_str.encode()).hexdigest() + ".json"
 
-    def _get_cached(self, params: dict) -> Optional[dict]:
+    def _get_cached(self, params: dict) -> dict | None:
         """Get cached response if exists."""
         cache_file = self.cache_dir / self._cache_key(params)
         if cache_file.exists():
             with open(cache_file) as f:
-                return json.load(f)
+                data: dict[Any, Any] = json.load(f)
+                return data
         return None
 
     def _save_cache(self, params: dict, data: dict) -> None:
@@ -71,8 +73,8 @@ class FREDClient:
     def get_series(
         self,
         series_id: str,
-        start_date: Optional[str] = None,
-        frequency: Optional[str] = None,
+        start_date: str | None = None,
+        frequency: str | None = None,
         use_cache: bool = True,
     ) -> SeriesResponse:
         """Get time series data.
@@ -121,8 +123,8 @@ class FREDClient:
     def get_series_dataframe(
         self,
         series_id: str,
-        start_date: Optional[str] = None,
-        frequency: Optional[str] = None,
+        start_date: str | None = None,
+        frequency: str | None = None,
     ) -> pd.DataFrame:
         """Get series as pandas DataFrame.
 
@@ -143,7 +145,7 @@ class FREDClient:
         return df.set_index("date")
 
     def get_common_indicators(
-        self, start_date: Optional[str] = None, frequency: str = "q"
+        self, start_date: str | None = None, frequency: str = "q"
     ) -> pd.DataFrame:
         """Get all common indicators as single DataFrame.
 

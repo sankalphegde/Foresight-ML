@@ -1,15 +1,15 @@
-from datetime import datetime, timedelta
 import os
+from datetime import datetime, timedelta
 
-from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.providers.google.cloud.transfers.local_to_gcs import (
     LocalFilesystemToGCSOperator,
 )
 
+from airflow import DAG
 from src.data.pipeline.core import (
-    fetch_sec_data,
     fetch_fred_data,
+    fetch_sec_data,
     merge_data,
 )
 
@@ -28,12 +28,11 @@ with DAG(
     dag_id="foresight_ml_data_pipeline",
     default_args=default_args,
     description="Foresight-ML data ingestion pipeline",
-    schedule_interval="@weekly",
+    schedule="@weekly",
     start_date=datetime(2024, 1, 1),
     catchup=False,
     tags=["foresight-ml", "ingestion"],
 ) as dag:
-
     fetch_sec = PythonOperator(
         task_id="fetch_sec_data",
         python_callable=fetch_sec_data,

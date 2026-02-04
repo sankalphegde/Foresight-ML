@@ -1,12 +1,10 @@
-.PHONY: help setup sync install local-up local-down terraform-init terraform-plan terraform-apply terraform-destroy lint format typecheck
+.PHONY: help setup local-up local-down lint format typecheck test
 
 help:
 	@echo "Foresight-ML Data Pipeline"
 	@echo ""
 	@echo "Setup:"
 	@echo "  make setup           - Install uv and initialize project"
-	@echo "  make sync            - Sync dependencies with uv"
-	@echo "  make install         - Install package in development mode"
 	@echo ""
 	@echo "Local Development:"
 	@echo "  make local-up        - Start local Airflow"
@@ -17,12 +15,7 @@ help:
 	@echo "  make format          - Format code with ruff"
 	@echo "  make typecheck       - Run mypy type checker"
 	@echo "  make check           - Run all checks (lint + typecheck)"
-	@echo ""
-	@echo "GCP Deployment:"
-	@echo "  make terraform-init  - Initialize Terraform"
-	@echo "  make terraform-plan  - Preview infrastructure changes"
-	@echo "  make terraform-apply - Deploy infrastructure"
-	@echo "  make terraform-destroy - Destroy infrastructure"
+	@echo "  make test			  - Runs pytests"
 
 setup:
 	@echo "Installing uv..."
@@ -30,12 +23,6 @@ setup:
 	@echo "Initializing project..."
 	uv sync
 	@echo "Setup complete!"
-
-sync:
-	uv sync
-
-install:
-	uv pip install -e .
 
 local-up:
 	docker-compose up -d
@@ -54,17 +41,8 @@ format:
 typecheck:
 	uv run mypy src/
 
-check: lint typecheck
+check: format typecheck
 	@echo "All checks passed"
-
-terraform-init:
-	cd terraform && terraform init
-
-terraform-plan:
-	cd terraform && terraform plan
-
-terraform-apply:
-	cd terraform && terraform apply
-
-terraform-destroy:
-	cd terraform && terraform destroy
+	
+test:
+	uv run pytest tests/

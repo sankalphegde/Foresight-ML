@@ -1,9 +1,10 @@
 """SEC EDGAR API client with caching and Pydantic validation."""
+
 import hashlib
 import json
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Any
 
 import requests
 from pydantic import BaseModel, Field, field_validator
@@ -13,7 +14,7 @@ class Filing(BaseModel):
     """SEC filing model."""
 
     cik: str
-    ticker: Optional[str] = None
+    ticker: str | None = None
     form: str
     filing_date: str
     accession_number: str = Field(..., alias="accessionNumber")
@@ -72,12 +73,13 @@ class SECClient:
         """Generate cache filename from URL."""
         return hashlib.md5(url.encode()).hexdigest() + ".json"
 
-    def _get_cached(self, url: str) -> Optional[dict]:
+    def _get_cached(self, url: str) -> dict | None:
         """Get cached response if exists."""
         cache_file = self.cache_dir / self._cache_key(url)
         if cache_file.exists():
             with open(cache_file) as f:
-                return json.load(f)
+                data: dict[Any, Any] = json.load(f)
+                return data
         return None
 
     def _save_cache(self, url: str, data: dict) -> None:
@@ -111,7 +113,7 @@ class SECClient:
         self._rate_limit()
         response = self.session.get(url, timeout=30)
         response.raise_for_status()
-        data = response.json()
+        data: dict[Any, Any] = response.json()
 
         # Cache result
         if use_cache:
@@ -136,7 +138,7 @@ class SECClient:
         self,
         filings_data: CompanyFilings,
         form_types: list[str],
-        start_date: Optional[str] = None,
+        start_date: str | None = None,
     ) -> list[Filing]:
         """Extract specific filing types from filings data.
 

@@ -93,7 +93,7 @@ output "setup_instructions" {
        gcloud composer environments storage dags import \
          --environment ${var.enable_composer ? google_composer_environment.airflow[0].name : "N/A"} \
          --location ${var.region} \
-         --source airflow/dags/data_pipeline.py
+         --source airflow/dags/foresight_ml_data_pipeline.py
 
     5. Query data:
        Open BigQuery console: https://console.cloud.google.com/bigquery?project=${var.project_id}

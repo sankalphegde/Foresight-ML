@@ -7,7 +7,6 @@ import pandas as pd
 from src.data.clients.fred_client import FREDClient
 from src.data.clients.sec_client import SECClient
 
-
 # Environment config
 SEC_USER_AGENT = os.getenv("SEC_USER_AGENT")
 FRED_API_KEY = os.getenv("FRED_API_KEY")
