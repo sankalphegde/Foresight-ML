@@ -76,7 +76,7 @@ output "dev_service_account_key" {
 # Instructions
 output "setup_instructions" {
   description = "Next steps after deployment"
-  value = <<-EOT
+  value       = <<-EOT
     Deployment complete! Next steps:
 
     1. Save service account key:
