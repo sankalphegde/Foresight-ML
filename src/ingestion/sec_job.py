@@ -5,7 +5,7 @@ from datetime import datetime
 import pandas as pd
 from google.cloud import storage
 
-from data.clients.sec_client import SECClient
+from src.data.clients.sec_client import SECClient
 
 
 def get_year_quarter(execution_date: str) -> tuple[int, str]:
@@ -44,32 +44,37 @@ def main() -> None:
 
     total_written = 0
 
-    # IMPORTANT: open once, append incrementally
-    with blob.open("a") as f:
-        for _, row in companies_df.iterrows():
-            cik = str(row["cik"]).zfill(10)
-            ticker = row["ticker"]
+    # Collect all records first, then write once
+    records = []
+    for _, row in companies_df.iterrows():
+        cik = str(row["cik"]).zfill(10)
+        ticker = row["ticker"]
 
-            try:
-                filings_data = sec_client.get_company_filings(cik)
+        try:
+            filings_data = sec_client.get_company_filings(cik)
 
-                filings = sec_client.filter_filings(
-                    filings_data,
-                    form_types=["10-K", "10-Q"],
-                    start_date="2020-01-01",
-                )
+            filings = sec_client.filter_filings(
+                filings_data,
+                form_types=["10-K", "10-Q"],
+                start_date="2020-01-01",
+            )
 
-                for filing in filings:
-                    record = filing.model_dump()
-                    record["ticker"] = ticker
-                    record["cik"] = cik
+            for filing in filings:
+                record = filing.model_dump()
+                record["ticker"] = ticker
+                record["cik"] = cik
 
-                    f.write(json.dumps(record) + "\n")
-                    total_written += 1
+                records.append(json.dumps(record) + "\n")
+                total_written += 1
 
-            except Exception as e:
-                # Never kill the whole job for one bad company
-                print(f"Failed for {ticker} ({cik}): {e}")
+        except Exception as e:
+            # Never kill the whole job for one bad company
+            print(f"Failed for {ticker} ({cik}): {e}")
+
+    # Write all records at once
+    if records:
+        with blob.open("w") as f:
+            f.write("".join(records))
 
     print(
         f"Wrote {total_written} SEC filings "

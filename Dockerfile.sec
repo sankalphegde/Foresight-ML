@@ -11,4 +11,4 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY src/ /app/src/
 COPY pyproject.toml uv.lock README.md ./
 
-CMD ["uv", "run", "python", "-m", "src.ingestion.fred_job"]
+CMD ["uv", "run", "python", "-m", "src.ingestion.sec_job"]
