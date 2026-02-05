@@ -20,7 +20,7 @@ with DAG(
         task_id="run_sec_ingestion",
         project_id=PROJECT_ID,
         region=REGION,
-        job_name="sec-ingestion",
+        job_name="foresight-sec-ingestion",
         overrides={
             "containerOverrides": [
                 {
@@ -36,7 +36,7 @@ with DAG(
         task_id="run_fred_ingestion",
         project_id=PROJECT_ID,
         region=REGION,
-        job_name="fred-ingestion",
+        job_name="foresight-ingestion",
         overrides={
             "containerOverrides": [
                 {
@@ -47,5 +47,8 @@ with DAG(
             ]
         },
     )
+
+    # Define dependencies
+    run_fred_ingestion >> run_sec_ingestion
 
     run_sec_ingestion >> run_fred_ingestion

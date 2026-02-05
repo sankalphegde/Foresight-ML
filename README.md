@@ -20,296 +20,636 @@ The current landscape of corporate financial health monitoring suffers from inef
 This project utilizes a combination of fundamental and market data. The raw data is versioned and managed using **DVC (Data Version Control)** to ensure reproducibility.
 All data used in this project is **publicly available**, ensuring transparency, reproducibility, and suitability for academic research.
 
-### Primary Data Source
-- **SEC EDGAR**  
-  - 10-K (annual) and 10-Q (quarterly) filings  
-  - Structured XBRL financial statements  
-  - Income statements, balance sheets, cash flow statements, and selected disclosures  
+### Primary Data Sources
+- **SEC EDGAR**: 10-K (annual) and 10-Q (quarterly) filings with structured XBRL financial statements
+- **Federal Reserve Economic Data (FRED)**: Economic indicators including interest rates, inflation, credit spreads
 
-### Supplementary Data Sources
-- **Federal Reserve Economic Data (FRED)**  
-  - Federal Funds Rate  
-  - Inflation (CPI)  
-  - Credit spreads  
-  - Unemployment and growth indicators  
-
-- **Public Distress Labels**
-  - Bankruptcy filings (e.g., UCLA LoPucki Bankruptcy Database)
-  - Exchange delisting records due to financial non-compliance
-  - Publicly available financial distress datasets (e.g., Kaggle)
-
-### Optional Enhancements
-- **Market Data**
-  - Stock prices, returns, volatility, and trading volume
-  - Sourced via Yahoo Finance (`yfinance`) or Alpha Vantage
-
-* **Data Management:**
-    * Raw data is stored in remote object storage (GCP bucket).
-    * `dvc.yaml` defines the data pipeline stages (ingest, clean, split).
-    * To access the data locally, you must have GCP credentials configured and run `dvc pull`.
+### Data Management
+- Raw data is stored in Google Cloud Storage (GCS)
+- Ingestion jobs run on Cloud Run
+- Orchestration managed via Apache Airflow
 
 ---
 
-## 3. Dataset Description
+## 3. Architecture Overview
 
-### Data Schema & Shape
-The dataset is structured at the **company–quarter level**, where each row represents a single firm’s financial state for a given fiscal quarter.
-
-**Expected dataset characteristics (initial):**
-- Rows: ~80,000 company-quarter observations  
-- Columns: 40–80 engineered features + metadata  
-- Time span: Multiple years (2010–2023)
-
-This structure supports longitudinal analysis and time-based modeling.
-
----
-
-### Key Feature Groups
-Rather than relying on raw financial line items alone, the project focuses on **engineered financial indicators** commonly used in corporate finance and risk analysis:
-
-#### Liquidity Metrics
-- Current Ratio  
-- Quick Ratio  
-
-#### Leverage & Solvency Metrics
-- Debt-to-Equity  
-- Total Debt / Total Assets  
-- Interest Coverage Ratio  
-
-#### Profitability Metrics
-- Net Margin  
-- Return on Assets (ROA)  
-- Operating Margin  
-
-#### Cash Flow Indicators
-- Operating Cash Flow / Total Debt  
-- Free Cash Flow trends  
-
-#### Temporal Features
-- Quarter-over-quarter growth rates (revenue, cash flow)
-- Rolling 4-quarter slopes and volatility measures
-
-#### Macroeconomic Indicators
-- Interest rates
-- Inflation
-- Credit spreads
-
-Optional NLP-derived features may be added from textual disclosures but are treated as non-blocking enhancements.
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    LOCAL DEVELOPMENT                         │
+├─────────────────────────────────────────────────────────────┤
+│  Apache Airflow (Docker Compose)                            │
+│  ├── Scheduler: Orchestrates DAGs                           │
+│  ├── Webserver: UI (http://localhost:8080)                  │
+│  ├── Worker: Executes tasks                                 │
+│  └── Database: Postgres metadata store                      │
+└──────────────────┬──────────────────────────────────────────┘
+                   │
+                   │ Triggers Cloud Run Jobs
+                   ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  GOOGLE CLOUD PLATFORM                       │
+├─────────────────────────────────────────────────────────────┤
+│  Cloud Run Jobs                                             │
+│  ├── foresight-ingestion (FRED)                             │
+│  │   └── Fetches economic indicators                        │
+│  │       → Stores to GCS: raw/fred/                         │
+│  │                                                          │
+│  └── foresight-sec-ingestion (SEC)                          │
+│      └── Fetches SEC filings                                │
+│          → Stores to GCS: raw/sec/                          │
+│                                                             │
+│  Cloud Storage                                              │
+│  └── financial-distress-data bucket                         │
+│      ├── raw/fred/year=*/month=*/                           │
+│      └── raw/sec/year=*/quarter=*/                          │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-### Missing & Null Values
-Missing values are expected due to:
-- Incomplete filings or reporting gaps
-- Newly listed companies with limited history
-- Undefined ratios caused by zero or near-zero denominators
-
-Exact missing-value counts will be quantified during exploratory data analysis (EDA).
-
----
-
-### Data Quality Considerations
-Financial datasets often contain inconsistencies and anomalies, including:
-- Outliers caused by accounting restatements
-- Inconsistent XBRL tagging across firms
-- Duplicate filings for the same fiscal period
-
-To address these issues, the project includes:
-- Accounting identity checks (Assets = Liabilities + Equity)
-- Outlier handling via winsorization
-- Deduplication by fiscal period
-- Unit tests for feature calculations
-
----
-
-## 4. Target Variable
-The target variable is a binary classification label:
-
-**`DistressNext12Months`**
-- `1`: The company experiences a publicly observable distress event within the next 12 months  
-- `0`: No distress event observed within the next 12 months  
-
-Distress events are defined conservatively using **objective, verifiable public outcomes**, such as bankruptcy filings or financial delistings, to avoid reliance on proprietary credit rating data.
-
----
-
-## 5. Planned Data Processing & Splits
-The data pipeline is designed to prevent information leakage and reflect real-world deployment constraints.
-
-Key preprocessing steps include:
-- Time-based train/validation/test splits
-- Forward-fill imputation for short gaps
-- Sector-median fallback for longer gaps
-- Outlier handling via winsorization
-- Feature scaling computed on training data only
-
-### Data Splitting Strategy
-- **Training:** 2010–2019  
-- **Validation:** 2020–2021 (stress-tested on COVID period)  
-- **Test:** 2022–2023  
-
-This approach ensures realistic evaluation under changing economic regimes.
-
----
-
-## 6. Model Output
-The system outputs:
-- A **probability score between 0 and 1** representing the estimated likelihood of financial distress within the next 12 months
-- **Feature-level explanations** (e.g., SHAP values) highlighting the main drivers of risk
-
-These outputs are designed to be interpretable and actionable for non-technical users.
-
----
-
-## 7. Research & Prior Work
-This project is informed by established financial risk research, including:
-- Altman Z-score and other ratio-based bankruptcy models
-- Credit ratings as industry benchmarks (not used directly due to access constraints)
-- Prior evidence that machine learning models incorporating temporal and macroeconomic features can improve early detection of distress
-
-The project builds upon this work by emphasizing automation, scalability, and explainability.
-
----
-
-## 8. Project Status & Next Steps
-**Current Status:**
-- Data ingestion pipeline setup
-- Schema validation and initial EDA
-
-**Next Steps:**
-- Feature engineering and baseline model training
-- Model evaluation and explainability analysis
-- Deployment of batch inference and on-demand scoring API
-- Dashboard development for visualization and demo
-
----
-## 9. Setup Instructions
-
-Follow these steps to set up the development environment for local experimentation and pipeline execution.
+## 4. Quick Start (5 minutes)
 
 ### Prerequisites
-- Python 3.9+
-- Docker (for containerized services and jobs)
+- Python 3.12+
+- Docker & Docker Compose
 - Git
-- DVC (for data versioning)
+- Google Cloud SDK (`gcloud` CLI)
+- GCP Service Account with Cloud Run & Storage access
 
-> Note: Cloud resources are managed using Google Cloud Platform (GCP) services such as Cloud Run, Cloud Scheduler, and Cloud Storage. No Terraform or Kubernetes setup is required.
+### Setup
+
+```bash
+# 1. Clone repository
+git clone <repo-url>
+cd foresight-ml
+
+# 2. Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.cargo/env
+
+# 3. Install dependencies
+uv sync
+
+# 4. Copy environment file
+cp example.env .env
+# Edit .env with your API keys
+
+# 5. Set up GCP credentials
+gcloud auth application-default login
+mkdir -p .gcp
+gcloud iam service-accounts keys create .gcp/service-account-key.json \
+  --iam-account=<your-service-account>@<project>.iam.gserviceaccount.com
+
+# 6. Start Airflow
+docker-compose up -d
+
+# 7. Initialize Airflow
+docker-compose run --rm airflow-webserver airflow db init
+docker-compose run --rm airflow-webserver airflow users create \
+  --username admin --firstname Admin --lastname User \
+  --role Admin --email admin@foresight --password admin
+
+# 8. Access UI
+# Open http://localhost:8080 (admin / admin)
+```
 
 ---
 
-### Installation
+## 5. Full Setup Guide
 
-1. **Clone the Repository**
+### Step 1: Environment Setup
+
 ```bash
-git clone https://github.com/sankalphegde/Foresight-ML.git
-cd Foresight-ML
-```
+# Clone repository
+git clone <repo-url>
+cd foresight-ml
 
-2. **Install uv (if not already installed)**
-```
+# Install uv (Python package manager)
 curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.cargo/env
+
+# Install project dependencies
+uv sync
+
+# Copy and configure environment
+cp example.env .env
+# Edit .env and add your API keys:
+# - GCP_PROJECT_ID
+# - FRED_API_KEY
+# - SEC_USER_AGENT
 ```
 
-3. **Set up project (installs dependencies)**
-```
-make setup
-```
-
-4. **Set up environment**
-```
-cp .env.example .env
-```
-Then edit .env with your API keys
-
-5. **Start Airflow locally**
-```
-make local-up
+**Required environment variables** (in `.env`):
+```env
+GCP_PROJECT_ID=financial-distress-ew
+GCP_REGION=us-central1
+GCP_BUCKET_RAW=financial-distress-data
+FRED_API_KEY=your-fred-api-key
+SEC_USER_AGENT=your-user-agent
+ENV=local
 ```
 
-6. **Access Airflow UI: http://localhost:8080**\
-Username: admin, Password: admin
+---
 
-If data is not yet available via DVC, ingestion scripts can be run to fetch raw data from public sources.
+### Step 2: Google Cloud Setup
 
-### Cloud Deployment
-
-Deployment to Google Cloud Platform is handled using Cloud Run services and jobs, triggered via Cloud Scheduler and GitHub Actions.
-Deployment configuration files are located in the infra/ directory.
-
-1. **Configure GCP credentials**
-```
+```bash
+# Authenticate with GCP
 gcloud auth application-default login
+gcloud config set project financial-distress-ew
+
+# Create service account for Airflow
+gcloud iam service-accounts create foresight-airflow \
+  --display-name="Foresight ML Airflow"
+
+# Grant permissions
+gcloud projects add-iam-policy-binding financial-distress-ew \
+  --member="serviceAccount:foresight-airflow@financial-distress-ew.iam.gserviceaccount.com" \
+  --role="roles/run.invoker"
+
+gcloud projects add-iam-policy-binding financial-distress-ew \
+  --member="serviceAccount:foresight-airflow@financial-distress-ew.iam.gserviceaccount.com" \
+  --role="roles/storage.admin"
+
+# Download service account key
+mkdir -p .gcp
+gcloud iam service-accounts keys create .gcp/service-account-key.json \
+  --iam-account=foresight-airflow@financial-distress-ew.iam.gserviceaccount.com
 ```
 
-2. **Create Terraform state bucket (one-time)**
-```
-gsutil mb gs://foresight-ml-terraform-state
-```
+---
 
-3. **Configure Terraform**
-```
-cd terraform
-cp terraform.tfvars.example terraform.tfvars
-```
-Edit terraform.tfvars with your GCP project ID
+### Step 3: Build Docker Images
 
-4. **Deploy infrastructure**
-```
-terraform init
-terraform plan
-terraform apply
-```
+Two separate images handle FRED and SEC ingestion:
 
-5. **Save service account key for local development**
-```
-terraform output -raw dev_service_account_key | base64 -d > ../gcp-key.json
-```
-
-6. **Set environment variables**
-```
-export GOOGLE_APPLICATION_CREDENTIALS=./gcp-key.json
-export GCS_BUCKET=$(terraform output -raw data_lake_bucket)
-```
-
-7. **Upload DAGs to Cloud Composer (if enabled)**
-```
-gcloud composer environments storage dags import
-  --environment foresight-ml-dev
-  --location us-central1
-  --source ../airflow/dags/foresight_ml_data_pipeline.py
-```
-
-8. **Upload source code**
-```
-gcloud composer environments storage dags import
-  --environment foresight-ml-dev
-  --location us-central1
-  --source ../src/
-  --destination src
-```
-
-### Running the Training Pipeline
-
-To execute the full batch pipeline (data preprocessing → feature engineering → model training):
+#### Local Testing
 ```bash
-dvc repro
+# Build FRED image
+docker build -f Dockerfile \
+  -t us-central1-docker.pkg.dev/financial-distress-ew/foresight/fred:latest .
+
+# Build SEC image
+docker build -f Dockerfile.sec \
+  -t us-central1-docker.pkg.dev/financial-distress-ew/foresight/sec:latest .
+
+# Test locally
+docker run --env-file .env \
+  us-central1-docker.pkg.dev/financial-distress-ew/foresight/fred:latest
 ```
 
-This command reproduces the pipeline defined in dvc.yaml, ensuring reproducibility across runs.
-
-### Running the API Locally (Optional)
-
-To start the FastAPI service locally for testing:
+#### Push to Google Artifact Registry
 ```bash
-uvicorn src.api.main:app --reload
+# Authenticate Docker
+gcloud auth configure-docker us-central1-docker.pkg.dev
+
+# Create repository (one-time)
+gcloud artifacts repositories create foresight \
+  --repository-format=docker --location=us-central1
+
+# Push images
+docker push us-central1-docker.pkg.dev/financial-distress-ew/foresight/fred:latest
+docker push us-central1-docker.pkg.dev/financial-distress-ew/foresight/sec:latest
 ```
 
-The API will be available at:
+#### Using Cloud Build (Automated)
 ```bash
-http://localhost:8000
+# Submit build (automatically builds both images)
+gcloud builds submit --substitutions=_DOCKER_BUILDKIT=1
+
+# Monitor build
+gcloud builds log <BUILD_ID> --stream
 ```
 
-### On-Demand Inference (Demo Mode)
-When deployed to Cloud Run, the API supports on-demand scoring for selected companies, returning:
-- Distress probability
-- Key contributing features
+---
+
+### Step 4: Create Cloud Run Jobs
+
+```bash
+# FRED ingestion job
+gcloud run jobs create foresight-ingestion \
+  --image us-central1-docker.pkg.dev/financial-distress-ew/foresight/fred:latest \
+  --region us-central1 \
+  --memory 2Gi --cpu 2 --task-timeout 3600s \
+  --set-env-vars EXECUTION_DATE="$(date -u +%Y-%m-%dT%H:%M:%S)" \
+  --set-env-vars GCS_BUCKET=financial-distress-data \
+  --set-env-vars FRED_API_KEY=$(grep FRED_API_KEY .env | cut -d= -f2)
+
+# SEC ingestion job
+gcloud run jobs create foresight-sec-ingestion \
+  --image us-central1-docker.pkg.dev/financial-distress-ew/foresight/sec:latest \
+  --region us-central1 \
+  --memory 2Gi --cpu 2 --task-timeout 3600s \
+  --set-env-vars EXECUTION_DATE="$(date -u +%Y-%m-%dT%H:%M:%S)" \
+  --set-env-vars GCS_BUCKET=financial-distress-data \
+  --set-env-vars SEC_USER_AGENT=$(grep SEC_USER_AGENT .env | cut -d= -f2)
+```
+
+**Test the jobs:**
+```bash
+# Execute FRED job
+gcloud run jobs execute foresight-ingestion --region us-central1
+
+# Execute SEC job
+gcloud run jobs execute foresight-sec-ingestion --region us-central1
+
+# View logs
+gcloud run jobs logs read foresight-ingestion --region us-central1 --limit 50
+gcloud run jobs logs read foresight-sec-ingestion --region us-central1 --limit 50
+```
+
+---
+
+### Step 5: Set Up Local Airflow
+
+**Start Airflow services:**
+```bash
+# Initialize Postgres database
+docker-compose up postgres -d
+
+# Initialize Airflow database
+docker-compose run --rm airflow-webserver airflow db init
+
+# Create admin user
+docker-compose run --rm airflow-webserver airflow users create \
+  --username admin \
+  --firstname Admin \
+  --lastname User \
+  --role Admin \
+  --email admin@foresight.local \
+  --password admin
+
+# Start all services (webserver, scheduler, worker)
+docker-compose up -d
+```
+
+**Verify services:**
+```bash
+docker-compose ps
+```
+
+**Access Airflow:**
+- **URL:** http://localhost:8080
+- **Username:** `admin`
+- **Password:** `admin`
+
+---
+
+### Step 6: Configure and Run DAG
+
+The DAG `foresight_ingestion` is automatically discovered and loaded.
+
+**Trigger manually:**
+1. Open http://localhost:8080
+2. Find DAG: `foresight_ingestion`
+3. Click "Trigger DAG"
+4. Monitor execution in Airflow UI
+5. Check Cloud Run job logs for details
+
+**View task execution:**
+- Click on DAG name to see task dependencies
+- Click on task to view logs
+- Check Cloud Run console for detailed job output
+
+---
+
+## 6. Docker Files Explained
+
+### Dockerfile (FRED Ingestion)
+```dockerfile
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+WORKDIR /app
+
+# Install dependencies (no project install)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=README.md,target=README.md \
+    uv sync --frozen --no-dev
+
+# Copy source code
+COPY src/ /app/src/
+COPY pyproject.toml uv.lock README.md ./
+
+# Run FRED ingestion job
+CMD ["uv", "run", "python", "-m", "src.ingestion.fred_job"]
+```
+
+### Dockerfile.sec (SEC Ingestion)
+Same as Dockerfile but runs `src.ingestion.sec_job` instead.
+
+---
+
+## 7. Cloud Build Configuration
+
+`cloudbuild.yaml` automatically builds both images:
+
+```yaml
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    # Builds Dockerfile → foresight/fred:latest
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    # Builds Dockerfile.sec → foresight/sec:latest
+
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/foresight/fred:$_IMAGE_TAG'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/foresight/sec:$_IMAGE_TAG'
+```
+
+**Trigger build:**
+```bash
+gcloud builds submit --substitutions=_DOCKER_BUILDKIT=1
+```
+
+---
+
+## 8. Airflow DAG Structure
+
+**File:** `src/airflow/dags/foresight_ml_data_pipeline.py`
+
+```python
+with DAG(
+    dag_id="foresight_ingestion",
+    start_date=datetime(2024, 1, 1),
+    schedule_interval="@weekly",  # Runs every Monday
+    catchup=False,
+) as dag:
+
+    # Task 1: Fetch FRED data
+    run_fred_ingestion = CloudRunExecuteJobOperator(
+        task_id="run_fred_ingestion",
+        job_name="foresight-ingestion",
+    )
+
+    # Task 2: Fetch SEC data (after FRED completes)
+    run_sec_ingestion = CloudRunExecuteJobOperator(
+        task_id="run_sec_ingestion",
+        job_name="foresight-sec-ingestion",
+    )
+
+    # Define dependency: SEC runs after FRED
+    run_fred_ingestion >> run_sec_ingestion
+```
+
+---
+
+## 9. Project Structure
+
+```
+foresight-ml/
+├── Dockerfile                          # FRED ingestion container
+├── Dockerfile.sec                      # SEC ingestion container
+├── docker-compose.yml                  # Local Airflow stack
+├── cloudbuild.yaml                     # Cloud Build configuration
+├── pyproject.toml                      # Python dependencies
+├── uv.lock                             # Locked dependencies
+├── example.env                         # Environment template
+├── .env                                # Your config (gitignored)
+├── .gcp/                               # GCP credentials (gitignored)
+│   └── service-account-key.json
+│
+├── src/
+│   ├── airflow/
+│   │   └── dags/
+│   │       └── foresight_ml_data_pipeline.py  # Orchestration DAG
+│   │
+│   ├── ingestion/                      # Data ingestion
+│   │   ├── fred_job.py                 # Fetches FRED data
+│   │   └── sec_job.py                  # Fetches SEC filings
+│   │
+│   ├── data/
+│   │   ├── clients/
+│   │   │   ├── fred_client.py          # FRED API wrapper
+│   │   │   └── sec_client.py           # SEC API wrapper
+│   │   ├── preprocess.py               # Data cleaning
+│   │   └── split.py                    # Train/val/test splits
+│   │
+│   ├── feature_store/                  # Feature definitions
+│   │   ├── definitions.py
+│   │   └── repo.py
+│   │
+│   ├── models/                         # Model training
+│   │   ├── train.py
+│   │   ├── evaluate.py
+│   │   └── predict.py
+│   │
+│   └── utils/
+│       └── config.py
+│
+├── tests/                              # Unit tests
+│   ├── test_data_ingestion.py
+│   ├── test_data.py
+│   └── test_model.py
+│
+├── notebooks/                          # Jupyter notebooks
+│   ├── eda.ipynb
+│   ├── feature_engineering.ipynb
+│   └── model_experiments.ipynb
+│
+├── infra/                              # Infrastructure (Terraform)
+│   ├── orchestration/
+│   │   └── composer.tf
+│   └── iam/
+│       └── iam.tf
+│
+├── monitoring/                         # Monitoring
+│   ├── data_drift.py
+│   ├── metrics.py
+│   └── model_drift.py
+│
+└── README.md                           # This file
+```
+
+---
+
+## 10. Common Tasks
+
+### Run Ingestion Jobs Locally
+
+```bash
+# FRED
+uv run python -m src.ingestion.fred_job
+
+# SEC
+uv run python -m src.ingestion.sec_job
+```
+
+### View Airflow Logs
+
+```bash
+# Scheduler logs
+docker-compose logs -f airflow-scheduler
+
+# Webserver logs
+docker-compose logs -f airflow-webserver
+
+# Worker logs
+docker-compose logs -f airflow-worker
+```
+
+### Rebuild Images and Deploy
+
+```bash
+# Build both images
+gcloud builds submit --substitutions=_DOCKER_BUILDKIT=1
+
+# Update Cloud Run jobs
+gcloud run jobs update foresight-ingestion \
+  --image us-central1-docker.pkg.dev/financial-distress-ew/foresight/fred:latest \
+  --region us-central1
+
+gcloud run jobs update foresight-sec-ingestion \
+  --image us-central1-docker.pkg.dev/financial-distress-ew/foresight/sec:latest \
+  --region us-central1
+```
+
+### Schedule Jobs to Run Automatically
+
+```bash
+# Run every Monday at 2 AM UTC
+gcloud run jobs update foresight-ingestion \
+  --schedule "0 2 * * 1" \
+  --region us-central1
+
+gcloud run jobs update foresight-sec-ingestion \
+  --schedule "0 3 * * 1" \
+  --region us-central1
+```
+
+### Check GCS Data
+
+```bash
+gsutil ls gs://financial-distress-data/raw/
+gsutil ls gs://financial-distress-data/raw/fred/
+gsutil ls gs://financial-distress-data/raw/sec/
+```
+
+---
+
+## 11. Troubleshooting
+
+### Airflow DAG Not Running
+```bash
+# Check DAG syntax
+docker-compose run --rm airflow-webserver airflow dags list
+
+# Check scheduler logs
+docker-compose logs airflow-scheduler
+
+# Verify service account key
+ls -la .gcp/service-account-key.json
+```
+
+### Cloud Run Job Fails
+```bash
+# View detailed logs
+gcloud run jobs logs read <job-name> --region us-central1 --limit 100
+
+# Check job configuration
+gcloud run jobs describe <job-name> --region us-central1
+
+# Test locally with Docker
+docker run --env-file .env us-central1-docker.pkg.dev/financial-distress-ew/foresight/fred:latest
+```
+
+### Docker Build Issues
+```bash
+# Check Dockerfile syntax
+docker build --progress=plain -f Dockerfile .
+
+# Verify dependencies
+uv export
+
+# Check file permissions
+ls -la Dockerfile Dockerfile.sec pyproject.toml uv.lock README.md
+```
+
+### Permission Errors
+```bash
+# Verify service account roles
+gcloud projects get-iam-policy financial-distress-ew \
+  --flatten="bindings[].members" \
+  --format="table(bindings.role)" \
+  --filter="bindings.members:foresight-airflow*"
+
+# Test Cloud Run access
+gcloud run jobs list --region us-central1
+```
+
+---
+
+## 12. Environment Variables
+
+### Required for Cloud Run Jobs
+
+```env
+# GCP
+GCP_PROJECT_ID=financial-distress-ew
+GCP_REGION=us-central1
+GCP_BUCKET_RAW=financial-distress-data
+
+# FRED
+FRED_API_KEY=your-api-key-from-fred.stlouisfed.org
+
+# SEC
+SEC_USER_AGENT=your-email@example.com
+
+# Execution
+EXECUTION_DATE=2024-01-01T00:00:00  # Set automatically by Airflow
+```
+
+### Getting API Keys
+
+**FRED:**
+1. Visit https://fred.stlouisfed.org/docs/api/
+2. Click "Request API Key"
+3. Copy your key to `.env`
+
+**SEC:**
+- No key needed, but provide a User-Agent header
+- Format: `app-name user@email.com`
+
+---
+
+## 13. Contributing
+
+### Adding a New Ingestion Job
+
+1. Create `src/ingestion/new_job.py`
+2. Create corresponding Dockerfile
+3. Update `cloudbuild.yaml` to build it
+4. Create Cloud Run job
+5. Add task to DAG
+6. Test locally and in production
+
+### Code Standards
+- Run tests: `uv run pytest`
+- Format code: `uv run ruff format src/`
+- Lint: `uv run ruff check src/`
+- Type check: `uv run mypy src/`
+
+---
+
+## 14. References
+
+- [Apache Airflow Docs](https://airflow.apache.org/docs/)
+- [Google Cloud Run](https://cloud.google.com/run/docs)
+- [FRED API](https://fred.stlouisfed.org/docs/api/)
+- [SEC EDGAR](https://www.sec.gov/cgi-bin/browse-edgar)
+- [Docker Documentation](https://docs.docker.com/)
+- [uv Package Manager](https://docs.astral.sh/uv/)
+
+---
+
+## 15. Support
+
+For issues or questions:
+1. Check the troubleshooting section
+2. Review logs (Airflow, Cloud Run, Docker)
+3. Open an issue on GitHub
+4. Contact the team lead
+
+---
+
+**Last Updated:** February 2026
