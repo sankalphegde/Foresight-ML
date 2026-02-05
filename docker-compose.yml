@@ -42,8 +42,8 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - /app/src/airflow/dags:/app/src/airflow/dags
-      - /app/.gcp:/app/.gcp:ro
+      - ./src/airflow/dags:/app/src/airflow/dags
+      - ./.gcp:/app/.gcp:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,8 +69,8 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: /app/.gcp/service-account-key.json
       GCP_PROJECT_ID: financial-distress-ew
     volumes:
-      - /app/src/airflow/dags:/app/src/airflow/dags
-      - /app/.gcp:/app/.gcp:ro
+      - ./src/airflow/dags:/app/src/airflow/dags
+      - ./.gcp:/app/.gcp:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -91,8 +91,8 @@ services:
       GOOGLE_APPLICATION_CREDENTIALS: /app/.gcp/service-account-key.json
       GCP_PROJECT_ID: financial-distress-ew
     volumes:
-      - /app/src/airflow/dags:/app/src/airflow/dags
-      - /app/.gcp:/app/.gcp:ro
+      - ./src/airflow/dags:/app/src/airflow/dags
+      - ./.gcp:/app/.gcp:ro
     depends_on:
       postgres:
         condition: service_healthy

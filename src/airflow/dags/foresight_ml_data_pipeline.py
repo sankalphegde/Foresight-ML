@@ -48,7 +48,7 @@ with DAG(
         },
     )
 
-    # Define dependencies
-    run_fred_ingestion >> run_sec_ingestion
+    # Both tasks run in parallel (independent ingestion jobs)
+    # No dependencies defined - they will execute concurrently
 
     run_sec_ingestion >> run_fred_ingestion
