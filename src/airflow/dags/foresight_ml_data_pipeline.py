@@ -11,7 +11,7 @@ REGION = "us-central1"
 with DAG(
     dag_id="foresight_ingestion",
     start_date=datetime(2024, 1, 1),
-    schedule_interval="@weekly",
+    schedule="@weekly",
     catchup=False,
     tags=["foresight-ml", "ingestion"],
 ) as dag:

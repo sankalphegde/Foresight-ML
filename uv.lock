@@ -1009,6 +1009,14 @@ dependencies = [
     { name = "types-requests" },
 ]
 
+[package.dev-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "ruff" },
+    { name = "types-requests" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "apache-airflow", specifier = ">=2.8.1" },
@@ -1020,6 +1028,14 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.5.3" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "requests", specifier = ">=2.31.0" },
+    { name = "ruff", specifier = ">=0.1.15" },
+    { name = "types-requests", specifier = ">=2.31.0.20240125" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.8.0" },
+    { name = "pytest", specifier = ">=9.0.2" },
     { name = "ruff", specifier = ">=0.1.15" },
     { name = "types-requests", specifier = ">=2.31.0.20240125" },
 ]
