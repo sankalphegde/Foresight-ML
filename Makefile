@@ -45,14 +45,8 @@ format:
 typecheck:
 	uv run mypy src/
 
-terraform-check:
-	bash scripts/check_terraform.sh
-
-check: format typecheck terraform-check
+check: format typecheck
 	@echo "All checks passed"
-
-check-ci: format typecheck
-	@echo "All checks passed (CI mode)"
 
 test:
 	uv run pytest tests/

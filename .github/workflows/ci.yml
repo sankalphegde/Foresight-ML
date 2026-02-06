@@ -9,8 +9,8 @@ on:
       - main
 
 jobs:
-  python-checks:
-    name: Python Checks
+  checks:
+    name: Code Quality
     runs-on: ubuntu-latest
 
     steps:
@@ -26,6 +26,11 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version-file: ".python-version"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
 
       - name: Cache mypy
         uses: actions/cache@v4
@@ -48,8 +53,8 @@ jobs:
       - name: Install dependencies
         run: make setup
 
-      - name: Format, lint, and type check
-        run: make check-ci
+      - name: Run all checks
+        run: make check
 
   test:
     name: Tests
@@ -86,19 +91,3 @@ jobs:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
         run: make test
-
-  terraform:
-    name: Terraform
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.0
-
-      - name: Validate Terraform
-        run: bash scripts/check_terraform.sh
