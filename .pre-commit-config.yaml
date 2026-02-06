@@ -31,8 +31,11 @@ repos:
       - id: gitleaks
 
   # --- Terraform Validation ---
-  - repo: https://github.com/antonbabenko/pre-commit-terraform
-    rev: v1.96.2
+  - repo: local
     hooks:
-      - id: terraform_fmt
-      - id: terraform_validate
+      - id: terraform-check
+        name: Terraform Format & Validate
+        entry: bash scripts/check_terraform.sh
+        language: system
+        files: \.tf$
+        pass_filenames: false
