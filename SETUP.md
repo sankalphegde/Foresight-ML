@@ -22,7 +22,7 @@ echo $FRED_API_KEY
 **Option B: Using terraform.tfvars file**
 
 ```bash
-cd infra/orchestration
+cd infra
 cp terraform.tfvars.example terraform.tfvars
 # Edit terraform.tfvars with your values
 ```
@@ -32,7 +32,7 @@ cp terraform.tfvars.example terraform.tfvars
 ### 2. Deploy Infrastructure
 
 ```bash
-cd infra/orchestration
+cd infra
 terraform init
 terraform plan
 terraform apply
@@ -200,7 +200,7 @@ To enable integration tests in CI/CD, configure GitHub secrets:
 
 **Update Infrastructure or Code:**
 ```bash
-cd infra/orchestration
+cd infra
 terraform plan
 terraform apply
 
@@ -216,6 +216,6 @@ gcloud run services logs tail foresight-airflow --region us-central1
 
 **Cleanup:**
 ```bash
-cd infra/orchestration
+cd infra
 terraform destroy
 ```

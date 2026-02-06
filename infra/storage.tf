@@ -74,7 +74,7 @@ resource "google_storage_bucket" "cache" {
 resource "google_storage_bucket_object" "companies_csv" {
   name   = "reference/companies.csv"
   bucket = google_storage_bucket.data_lake.name
-  source = "${path.module}/../../data/companies.csv"
+  source = "${path.module}/../data/companies.csv"
 
   lifecycle {
     ignore_changes = [detect_md5hash]

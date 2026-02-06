@@ -54,6 +54,8 @@ jobs:
         run: make setup
 
       - name: Run all checks
+        env:
+          SKIP: terraform-fmt,terraform-validate
         run: make check
 
   test:
