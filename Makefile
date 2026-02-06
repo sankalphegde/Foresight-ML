@@ -1,4 +1,4 @@
-.PHONY: help setup local-up local-down lint format typecheck test check
+.PHONY: help setup local-up local-down lint format typecheck terraform-check test check
 
 help:
 	@echo "Foresight-ML Data Pipeline"
@@ -14,8 +14,9 @@ help:
 	@echo "  make lint            - Run ruff linter (check only)"
 	@echo "  make format          - Format and fix code (runs pre-commit)"
 	@echo "  make typecheck       - Run mypy type checker"
+	@echo "  make terraform-check - Validate Terraform configuration"
 	@echo "  make test            - Run pytest"
-	@echo "  make check           - Run all checks (format + typecheck)"
+	@echo "  make check           - Run all checks (format + typecheck + terraform)"
 
 setup:
 	@echo "Installing uv..."
@@ -44,7 +45,10 @@ format:
 typecheck:
 	uv run mypy src/
 
-check: format typecheck
+terraform-check:
+	bash scripts/check_terraform.sh
+
+check: format typecheck terraform-check
 	@echo "All checks passed"
 
 test:

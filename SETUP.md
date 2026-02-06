@@ -78,22 +78,44 @@ Login: `admin` / `admin`
 
 ## Local Development
 
-### Prerequisites (Optional)
+### Prerequisites
 
-If you don't have `gcloud` CLI installed:
+**Install Terraform:**
 
-**macOS:**
+*macOS:*
+```bash
+brew tap hashicorp/tap
+brew install hashicorp/tap/terraform
+```
+
+*Linux:*
+```bash
+wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update && sudo apt install terraform
+```
+
+*Windows:*
+```powershell
+choco install terraform
+```
+
+Or download from https://developer.hashicorp.com/terraform/downloads
+
+**Install gcloud CLI (Optional):**
+
+*macOS:*
 ```bash
 brew install google-cloud-sdk
 ```
 
-**Linux:**
+*Linux:*
 ```bash
 curl https://sdk.cloud.google.com | bash
 exec -l $SHELL
 ```
 
-**Windows:**
+*Windows:*
 Download from https://cloud.google.com/sdk/docs/install
 
 **Authenticate:**
@@ -142,11 +164,13 @@ docker-compose up airflow
 ### Code Quality
 
 ```bash
-# Run all checks (linting, formatting, type checking)
+# Run all checks (formatting, linting, type checking, terraform validation)
 make check
 
-# Run pre-commit on all files
-pre-commit run --all-files
+# Run individual checks
+make format          # Format and fix code
+make typecheck       # Type check with mypy
+make terraform-check # Validate Terraform configuration
 
 # Run unit tests only (no API calls)
 FRED_API_KEY="" SEC_USER_AGENT="" make test 2>&1 | grep -E "(PASSED|test_.*_client)"

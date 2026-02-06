@@ -49,6 +49,8 @@ jobs:
         run: make setup
 
       - name: Run Ruff linter, Mypy typechecks, and precommit checks
+        env:
+          SKIP: terraform_fmt,terraform_validate # done in terraform-validate job
         run: make check
 
   terraform-validate:

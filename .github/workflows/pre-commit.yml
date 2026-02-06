@@ -33,4 +33,6 @@ jobs:
         run: pip install pre-commit
 
       - name: Run pre-commit
+        env:
+          SKIP: terraform_fmt,terraform_validate # done in terraform-validate job
         run: pre-commit run --all-files
