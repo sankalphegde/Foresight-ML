@@ -4,10 +4,11 @@ from pathlib import Path
 import json
 import pandas as pd
 from google.cloud import storage
+import os
 
 
-BUCKET_NAME = "financial-distress-data"
-GCS_OUT_PATH = "interim/panel_base.parquet"
+BUCKET_NAME = os.getenv("GCP_BUCKET_RAW", "financial-distress-data")
+GCS_OUT_PATH = os.getenv("GCS_PREPROCESS_OUT", "interim/panel_base.parquet")
 
 
 def read_sec_jsonl(path: str) -> pd.DataFrame:
