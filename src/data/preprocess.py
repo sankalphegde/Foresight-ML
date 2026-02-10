@@ -9,6 +9,8 @@ import os
 
 BUCKET_NAME = os.getenv("GCP_BUCKET_RAW", "financial-distress-data")
 GCS_OUT_PATH = os.getenv("GCS_PREPROCESS_OUT", "interim/panel_base.parquet")
+GCS_REPORT_PATH = os.getenv("GCS_PREPROCESS_REPORT_OUT", "interim/preprocess_report.json")
+
 
 
 def read_sec_jsonl(path: str) -> pd.DataFrame:
@@ -82,12 +84,42 @@ def main() -> None:
     out_path = out_dir / "panel_base.parquet"
 
     sec.to_parquet(out_path, index=False)
+
+        # --- VALIDATION REPORT ---
+    print("Creating validation report...")
+
+    report = {
+        "row_count": int(len(sec)),
+        "columns": list(sec.columns),
+        "null_counts": sec.isna().sum().to_dict(),
+    }
+
+    # numeric ranges
+    numeric_cols = sec.select_dtypes(include="number").columns
+    report["numeric_ranges"] = {
+        col: {
+            "min": float(sec[col].min()) if len(sec) else None,
+            "max": float(sec[col].max()) if len(sec) else None,
+        }
+        for col in numeric_cols
+    }
+
+    report_path = out_dir / "preprocess_report.json"
+    import json as _json
+    with open(report_path, "w") as f:
+        _json.dump(report, f, indent=2)
+
+    print("Saved validation report:", report_path)
+
     print("Saved interim parquet:", out_path)
     print("Rows:", len(sec))
     print("Columns:", list(sec.columns))
 
+
+
     # Upload to GCS
     upload_to_gcs(out_path, BUCKET_NAME, GCS_OUT_PATH)
+    upload_to_gcs(report_path, BUCKET_NAME, GCS_REPORT_PATH)
 
 
 if __name__ == "__main__":
